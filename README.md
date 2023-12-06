@@ -35,6 +35,9 @@ To run the project correctly, the following steps are required:
 - Generate migrations and run the seeder to add test data.
 
 ```bash
+  php artisan migrate
+```
+```bash
   php artisan migrate --seed
 ```
 

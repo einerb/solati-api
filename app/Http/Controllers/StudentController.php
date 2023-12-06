@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Exceptions\NotFoundException;
 use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 use App\Http\Responses\ApiResponse;
 use App\Repositories\StudentRepository;
@@ -27,14 +30,41 @@ class StudentController extends Controller
 
             return ApiResponse::success('Estudiantes encontrados!', 200, $students);
         } catch (Exception $e) {
-            ApiResponse::error('Error de operacion!', 500, $e->getMessage());
+            return ApiResponse::error('Error de operación!', 500, $e->getMessage());
         }
     }
 
+    private function validateStudent(Request $request)
+    {
+        $request->validate([
+            'email' => [
+                'required',
+                'email',
+                Rule::unique('students')->ignore($request->student_id),
+            ],
+            'name' => 'required',
+            'lastname' => 'required',
+        ], [
+            'email.unique' => 'El correo electrónico ya está en uso.',
+            'email.required' => 'El correo electrónico es obligatorio.',
+            'name.required' => 'El nombre es obligatorio.',
+            'lastname.required' => 'El apellido es obligatorio.',
+        ]);
+    }
 
     public function store(Request $request)
     {
-        //
+        try {
+            $this->validateStudent($request);
+
+            $studentCreated = $this->studentRepo->create($request->all());
+
+            return ApiResponse::success('Estudiante creado exitosamente!', 200, $studentCreated);
+        } catch (ValidationException $e) {
+            return ApiResponse::error('Error de validación!', 400, $e->validator->errors()->first());
+        } catch (Exception $e) {
+            return ApiResponse::error('Error de operación!', 500, $e->getMessage());
+        }
     }
 
 
@@ -44,15 +74,25 @@ class StudentController extends Controller
             $student = $this->studentRepo->getById($id);
 
             return ApiResponse::success('Estudiante encontrado!', 200, $student);
+        } catch (NotFoundException $e) {
+            return ApiResponse::error('Estudiante no encontrado!', 404, null);
         } catch (Exception $e) {
-            ApiResponse::error('Error de operacion!', 500, $e->getMessage());
+            return ApiResponse::error('Error de operación!', 500, $e->getMessage());
         }
     }
 
 
     public function update(Request $request, string $id)
     {
-        //
+        try {
+            $student = $this->studentRepo->update($id, $request->all());
+
+            return ApiResponse::success('Estudiante actualizado exitosamente!', 200, $student);
+        } catch (NotFoundException $e) {
+            return ApiResponse::error('Estudiante no encontrado!', 404, null);
+        } catch (Exception $e) {
+            return ApiResponse::error('Error de operación!', 500, $e->getMessage());
+        }
     }
 
 
@@ -61,9 +101,11 @@ class StudentController extends Controller
         try {
             $this->studentRepo->delete($id);
 
-            return ApiResponse::success('Estudiante eliminado!', 200);
+            return ApiResponse::success('Estudiante eliminado!', 200, null);
+        } catch (NotFoundException $e) {
+            return ApiResponse::error('Estudiante no encontrado!', 404, null);
         } catch (Exception $e) {
-            ApiResponse::error('Error de operacion!', 500, $e->getMessage());
+            return ApiResponse::error('Error de operación!', 500, $e->getMessage());
         }
     }
 }
